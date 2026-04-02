@@ -1,75 +1,156 @@
 import java.util.*;
 
-// Represents an Add-On Service
-class Service {
-    private String serviceName;
-    private double cost;
+// Reservation Class
+class Reservation {
+    private String guestName;
+    private String roomType;
 
-    public Service(String serviceName, double cost) {
-        this.serviceName = serviceName;
-        this.cost = cost;
+    public Reservation(String guestName, String roomType) {
+        this.guestName = guestName;
+        this.roomType = roomType;
     }
 
-    public String getServiceName() {
-        return serviceName;
+    public String getGuestName() {
+        return guestName;
     }
 
-    public double getCost() {
-        return cost;
+    public String getRoomType() {
+        return roomType;
     }
 
     @Override
     public String toString() {
-        return serviceName + " ($" + cost + ")";
+        return "Guest: " + guestName + ", Room Type: " + roomType;
     }
 }
 
-// Manages Add-On Services for Reservations
-class AddOnServiceManager {
+// Booking History (Stores confirmed bookings)
+class BookingHistory {
+    private List<Reservation> confirmedBookings;
 
-    // Map<ReservationID, List of Services>
-    private Map<String, List<Service>> reservationServicesMap;
-
-    public AddOnServiceManager() {
-        reservationServicesMap = new HashMap<>();
+    public BookingHistory() {
+        confirmedBookings = new ArrayList<>();
     }
 
-    // Add service to a reservation
-    public void addService(String reservationId, Service service) {
-        reservationServicesMap
-                .computeIfAbsent(reservationId, k -> new ArrayList<>())
-                .add(service);
+    // Add confirmed reservation
+    public void addReservation(Reservation reservation) {
+        confirmedBookings.add(reservation);
     }
 
-    // Get services for a reservation
-    public List<Service> getServices(String reservationId) {
-        return reservationServicesMap.getOrDefault(reservationId, new ArrayList<>());
+    // Get all reservations
+    public List<Reservation> getAllReservations() {
+        return confirmedBookings;
     }
 
-    // Calculate total add-on cost
-    public double calculateTotalServiceCost(String reservationId) {
-        List<Service> services = reservationServicesMap.get(reservationId);
-        if (services == null) return 0.0;
-
-        double total = 0.0;
-        for (Service s : services) {
-            total += s.getCost();
-        }
-        return total;
-    }
-
-    // Display services
-    public void displayServices(String reservationId) {
-        List<Service> services = getServices(reservationId);
-
-        if (services.isEmpty()) {
-            System.out.println("No add-on services selected.");
+    // Display history
+    public void displayHistory() {
+        System.out.println("\n=== Booking History ===");
+        if (confirmedBookings.isEmpty()) {
+            System.out.println("No bookings found.");
             return;
         }
 
-        System.out.println("Add-On Services for Reservation ID: " + reservationId);
-        for (Service s : services) {
-            System.out.println("- " + s);
+        for (Reservation r : confirmedBookings) {
+            System.out.println(r);
+        }
+    }
+}
+
+// Reporting Service
+class BookingReportService {
+
+    public void generateSummary(BookingHistory history) {
+        System.out.println("\n=== Booking Summary Report ===");
+
+        List<Reservation> list = history.getAllReservations();
+
+        if (list.isEmpty()) {
+            System.out.println("No data available.");
+            return;
+        }
+
+        Map<String, Integer> roomTypeCount = new HashMap<>();
+
+        for (Reservation r : list) {
+            roomTypeCount.put(
+                    r.getRoomType(),
+                    roomTypeCount.getOrDefault(r.getRoomType(), 0) + 1
+            );
+        }
+
+        for (Map.Entry<String, Integer> entry : roomTypeCount.entrySet()) {
+            System.out.println(entry.getKey() + " Bookings: " + entry.getValue());
+        }
+
+        System.out.println("Total Bookings: " + list.size());
+    }
+}
+
+// Inventory Service
+class RoomInventory {
+    private Map<String, Integer> inventory;
+
+    public RoomInventory() {
+        inventory = new HashMap<>();
+        inventory.put("Single Room", 2);
+        inventory.put("Double Room", 1);
+        inventory.put("Suite Room", 1);
+    }
+
+    public int getAvailability(String roomType) {
+        return inventory.getOrDefault(roomType, 0);
+    }
+
+    public void reduceAvailability(String roomType) {
+        inventory.put(roomType, inventory.get(roomType) - 1);
+    }
+
+    public void displayInventory() {
+        System.out.println("\n=== Updated Inventory ===");
+        for (Map.Entry<String, Integer> entry : inventory.entrySet()) {
+            System.out.println(entry.getKey() + " -> Available: " + entry.getValue());
+        }
+    }
+}
+
+// Booking Service
+class BookingService {
+
+    private Queue<Reservation> bookingQueue;
+    private RoomInventory inventory;
+    private BookingHistory history;
+
+    public BookingService(Queue<Reservation> bookingQueue,
+                          RoomInventory inventory,
+                          BookingHistory history) {
+        this.bookingQueue = bookingQueue;
+        this.inventory = inventory;
+        this.history = history;
+    }
+
+    public void processBookings() {
+
+        System.out.println("=== Processing Bookings ===\n");
+
+        while (!bookingQueue.isEmpty()) {
+
+            Reservation request = bookingQueue.poll();
+            String roomType = request.getRoomType();
+
+            System.out.println("Processing: " + request.getGuestName());
+
+            if (inventory.getAvailability(roomType) > 0) {
+
+                inventory.reduceAvailability(roomType);
+
+                // ✅ Add to history ONLY if confirmed
+                history.addReservation(request);
+
+                System.out.println("Booking Confirmed for " + request.getGuestName());
+
+            } else {
+                System.out.println("Booking Failed for " + request.getGuestName());
+            }
         }
     }
 }
@@ -79,26 +160,33 @@ public class BookMyStayApp {
 
     public static void main(String[] args) {
 
-        AddOnServiceManager manager = new AddOnServiceManager();
+        System.out.println("=== Book My Stay App v8.0 ===\n");
 
-        // Sample reservation ID
-        String reservationId = "RES123";
+        // Step 1: Queue
+        Queue<Reservation> queue = new LinkedList<>();
+        queue.offer(new Reservation("Alice", "Single Room"));
+        queue.offer(new Reservation("Bob", "Single Room"));
+        queue.offer(new Reservation("Charlie", "Single Room")); // fail
+        queue.offer(new Reservation("David", "Suite Room"));
 
-        // Create some services
-        Service breakfast = new Service("Breakfast", 20.0);
-        Service airportPickup = new Service("Airport Pickup", 50.0);
-        Service spa = new Service("Spa Access", 80.0);
+        // Step 2: Services
+        RoomInventory inventory = new RoomInventory();
+        BookingHistory history = new BookingHistory();
+        BookingService bookingService = new BookingService(queue, inventory, history);
 
-        // Guest selects services
-        manager.addService(reservationId, breakfast);
-        manager.addService(reservationId, airportPickup);
-        manager.addService(reservationId, spa);
+        // Step 3: Process
+        bookingService.processBookings();
 
-        // Display selected services
-        manager.displayServices(reservationId);
+        // Step 4: View History
+        history.displayHistory();
 
-        // Calculate total cost
-        double totalCost = manager.calculateTotalServiceCost(reservationId);
-        System.out.println("Total Add-On Cost: $" + totalCost);
+        // Step 5: Reporting
+        BookingReportService reportService = new BookingReportService();
+        reportService.generateSummary(history);
+
+        // Step 6: Inventory
+        inventory.displayInventory();
+
+        System.out.println("\nSystem ready for admin reporting.");
     }
 }
